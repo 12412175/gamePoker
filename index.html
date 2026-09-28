@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>短牌德州扑克</title>
 <style>
     * {
@@ -30,29 +30,46 @@
         --gain: #7d9a76;
         --loss: #bb8a8a;
     }
+    /* Safari 视口高度：优先 dvh，回退到 -webkit-fill-available / vh */
     html, body { height: 100%; overflow: hidden; }
     body {
         background: var(--bg); color: var(--text);
         display: flex; justify-content: center; align-items: center;
         touch-action: manipulation;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        min-height: 100dvh;
     }
     #app {
         width: 100%; max-width: 480px;
-        height: 100vh; max-height: 900px;
+        height: 100vh;
+        height: -webkit-fill-available;
+        height: 100dvh;
+        max-height: 900px;
         display: flex; flex-direction: column;
         background: var(--bg); position: relative; overflow: hidden;
+        /* 安全区域内边距，避免顶部刘海/底部小横条遮挡 */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
     }
     .header {
         display: flex; justify-content: space-between; align-items: center;
         padding: 10px 16px; flex: 0 0 auto;
     }
     .title { font-size: 16px; font-weight: 600; letter-spacing: 2px; color: var(--text); }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .mini-btn {
+        background: var(--accent); color: #f0ece6; border: none;
+        padding: 5px 11px; border-radius: 14px; font-size: 12px;
+        font-weight: 600; cursor: pointer; transition: transform 0.1s;
+    }
+    .mini-btn:active { transform: scale(0.94); }
     .pot-badge {
         background: var(--accent); color: #f0ece6;
         padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
     }
 
-    /* 上方三分之一详情面板 */
+    /* 上方四分之一详情面板 */
     .detail-panel {
         flex: 0 0 25%;
         margin: 0 14px;
@@ -226,7 +243,9 @@
     .btn.call { background: var(--btn-call); }
     .btn.raise { background: var(--btn-raise); }
     .btn.continue { background: var(--accent-dark); }
-    .continue-zone { display: none; }
+    /* 下一手按钮：底部居中 */
+    .continue-zone { display: none; justify-content: center; }
+    .btn.continue { flex: 0 0 auto; min-width: 55%; padding: 14px 36px; }
 
     .overlay {
         position: absolute; inset: 0;
@@ -251,14 +270,18 @@
 <div id="app">
     <div class="header">
         <div class="title">短牌德州</div>
-        <div class="pot-badge" id="handCount">第 1 手</div>
+        <div class="header-right">
+            <button class="mini-btn" id="btnSave">存档</button>
+            <button class="mini-btn" id="btnLoad">读档</button>
+            <div class="pot-badge" id="handCount">第 1 手</div>
+        </div>
     </div>
 
-    <!-- 三分之一详情面板 -->
+    <!-- 四分之一详情面板 -->
     <div class="detail-panel" id="detailPanel">
         <div class="panel-idle">
             <img class="panel-img" id="panelImg" alt="" style="display:none;">
-            <div class="idle-text" id="idleText">
+            <div class="idle-text" id="idleText" style="display:none;">
                 <div class="idle-stage" id="idleStage">准备</div>
                 <div class="idle-pot" id="idlePot">底池 0</div>
                 <div class="idle-sub">同花 &gt; 葫芦 · 仅 6~A</div>
@@ -320,6 +343,7 @@
 
 <script>
 const IMG_BASE = 'https://raw.githubusercontent.com/12412175/gamePoker/main/images/';
+const SAVE_KEY = 'shortDeckPoker';
 
 const SUITS = ['♠','♥','♦','♣'];
 const RANKS = ['6','7','8','9','10','J','Q','K','A'];  // 短牌
@@ -650,23 +674,54 @@ function showGameOver(humanWon){
     $('overlay').classList.add('show');
 }
 
+/* ---------- 存档 / 读档 ---------- */
+function saveGame(){
+    if(!players.length) return;
+    const data = {
+        chips: players.map(p=>p.chips),
+        handNumber: handNumber,
+        dealerIdx: dealerIdx
+    };
+    try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+        setStatus('✅ 已存档');
+    } catch(e){
+        setStatus('⚠️ 存档失败');
+    }
+}
+function loadGame(){
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); }
+    catch(e){ setStatus('⚠️ 读档失败'); return; }
+    if(!raw){ setStatus('暂无存档'); return; }
+    try {
+        const data = JSON.parse(raw);
+        players = [
+            {name:'你', chips:data.chips[0], isHuman:true},
+            {name:'对手', chips:data.chips[1]},
+        ];
+        handNumber = data.handNumber || 1;
+        dealerIdx = data.dealerIdx || 0;
+        $('overlay').classList.remove('show');
+        startHand();
+        setStatus('📂 已读取存档');
+    } catch(e){
+        setStatus('⚠️ 存档损坏');
+    }
+}
+$('btnSave').onclick = saveGame;
+$('btnLoad').onclick = loadGame;
+
 /* ---------- 详情面板 ---------- */
 function setPanelIdle(){
     $('detailPanel').classList.remove('showdown');
     updatePanelIdle();
 }
 function updatePanelIdle(){
-    $('idleStage').textContent = STAGE_NAMES[Math.min(stage,4)];
-    $('idlePot').textContent = '底池 ' + pot;
-    // 翻牌前显示对手筹码对应图片，其余阶段显示文字信息
-    if(stage===0){
-        $('panelImg').src = oppChipImage();
-        $('panelImg').style.display = 'block';
-        $('idleText').style.display = 'none';
-    } else {
-        $('panelImg').style.display = 'none';
-        $('idleText').style.display = 'flex';
-    }
+    // 所有非摊牌阶段（翻牌前/翻牌/转牌/河牌）都显示对手筹码对应图片
+    $('panelImg').src = oppChipImage();
+    $('panelImg').style.display = 'block';
+    $('idleText').style.display = 'none';
 }
 function renderDetail(isShowdown, winners){
     $('detailPanel').classList.add('showdown');
@@ -706,7 +761,7 @@ function showActionZone(){
 }
 function showContinueZone(){
     $('actionZone').style.display = 'none';
-    $('continueZone').style.display = 'block';
+    $('continueZone').style.display = 'flex';
 }
 
 function enableHumanControls(){
@@ -835,7 +890,6 @@ function render(reveal){
 
 function setStatus(t){ $('status').textContent = t; }
 
-/* 去除开始弹窗，直接开始游戏 */
 initGame();
 </script>
 </body>
