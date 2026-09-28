@@ -389,7 +389,7 @@ function makeDeck(){
 function initGame(){
     players = [
         {name:'你', chips:START_CHIPS, isHuman:true},
-        {name:'对手', chips:START_CHIPS},
+        {name:'金sir', chips:START_CHIPS},
     ];
     handNumber = 1;
     dealerIdx = Math.floor(Math.random()*players.length);
@@ -662,12 +662,12 @@ function showGameOver(humanWon){
         modal.innerHTML =
             '<img class="win-img" src="'+IMG_BASE+'0.png" alt="胜利">'+
             '<h2>🏆 胜利！</h2>'+
-            '<p>你赢光了对手的筹码</p>'+
+            '<p>扒光了喵♥</p>'+
             '<button class="btn" id="modalBtn2">重新开始</button>';
     } else {
         modal.innerHTML =
             '<h2>游戏结束</h2>'+
-            '<p>你的筹码耗尽了，再接再厉</p>'+
+            '<p>杂口♥杂口♥</p>'+
             '<button class="btn" id="modalBtn2">重新开始</button>';
     }
     $('modalBtn2').onclick = function(){ $('overlay').classList.remove('show'); initGame(); };
@@ -698,7 +698,7 @@ function loadGame(){
         const data = JSON.parse(raw);
         players = [
             {name:'你', chips:data.chips[0], isHuman:true},
-            {name:'对手', chips:data.chips[1]},
+            {name:'金sir', chips:data.chips[1]},
         ];
         handNumber = data.handNumber || 1;
         dealerIdx = data.dealerIdx || 0;
@@ -727,7 +727,7 @@ function renderDetail(isShowdown, winners){
     $('detailPanel').classList.add('showdown');
     $('detailOpp').className = 'detail-col' + (winners.includes(players[1])?' win':'');
     $('detailPlayer').className = 'detail-col' + (winners.includes(players[0])?' win':'');
-    $('detailOpp').innerHTML = colHTML(players[1], '对手', isShowdown);
+    $('detailOpp').innerHTML = colHTML(players[1], '金sir', isShowdown);
     $('detailPlayer').innerHTML = colHTML(players[0], '你', isShowdown);
 }
 function colHTML(p, label, isShowdown){
